@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AlbumArtWorkExtractor": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\dzang\\Music\\MP3s\r\nabc"
+    }
+  }
+}
