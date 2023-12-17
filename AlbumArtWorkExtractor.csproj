@@ -5,6 +5,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Title>Album Art Work Extractor for Audio Files</Title>
+    <RepositoryUrl>https://github.com/dzangger67/AlbumArtWorkExtractor</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>mp3 flac album art</PackageTags>
+    <Description>Extract album art from your audio collection.  This can extract all the album art work and place them where you want them.</Description>
+    <Authors>dzangger67, David Zangger</Authors>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,6 +19,13 @@
     <PackageReference Include="Spectre.Console" Version="0.48.1-preview.0.5" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

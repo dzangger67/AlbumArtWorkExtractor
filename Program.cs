@@ -10,6 +10,12 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
+// Some examples:
+//
+// -r "E:\Music\MP3's" -t -1 -p "e:\music\album-art\[artist]-[album][disc].jpg" -w 1000 -o
+//
+//
+
 namespace AlbumArtWorkExtractor
 {
     internal class Program
@@ -46,6 +52,12 @@ namespace AlbumArtWorkExtractor
             [Option('o', "overwrite", Required = false, Default = false, HelpText = "Overwrite the file if it already exists.")]
             public bool Overwrite{ get; set; }
 
+            [Option('h', "height", Required = false, Default = null, HelpText = "The new Height for the image.")]
+            public int? Height { get; set; }
+
+            [Option('w', "width", Required = false, Default = null, HelpText = "The new Width for the image.")]
+            public int? Width { get; set; }
+
         }
 
         static async Task Main(string[] args)
@@ -72,6 +84,13 @@ namespace AlbumArtWorkExtractor
                         Environment.Exit(1);
                     }                    
                 }
+
+                // Make sure if we're resizing the image, the values make sense.  If only one value is
+                // provided, set the other value to the other value .. LOL
+                if (o.Width != null && o.Height == null)
+                    o.Height = o.Width;
+                else if (o.Height != null && o.Width == null)
+                    o.Width = o.Height;
 
                 // Start the image extraction from all the audio files
                 await StartImageExtract(o);
@@ -115,7 +134,7 @@ namespace AlbumArtWorkExtractor
          * 
          * byte[] resizedImageBytes = ResizeImage(myImageBytes, 640, 480);
          */
-        public byte[] ResizeImage(byte[] imageBytes, int maxWidth, int maxHeight)
+        public static byte[] ResizeImage(byte[] imageBytes, int? maxWidth, int? maxHeight)
         {
             using (var ms = new MemoryStream(imageBytes))
             {
@@ -289,6 +308,13 @@ namespace AlbumArtWorkExtractor
                 {
                     try
                     {
+                        // do we need to resize the image?
+                        if (o.Height != null && o.Width != null)
+                        {
+                            aa.Bytes = ResizeImage(aa.Bytes, o.Width, o.Height);
+                        }
+
+                        // Now write the bytes to a file
                         using (var ms = new MemoryStream(aa.Bytes))
                         {
                             using (var fs = new FileStream(aa.Filename, FileMode.Create))
@@ -303,7 +329,7 @@ namespace AlbumArtWorkExtractor
                         System.Drawing.Size size = GetImageDimensions(aa.Bytes);
 
                         // update the console user
-                        AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{aa.Filename.EscapeMarkup()}[/][lightgreen]W:{size.Width}xH:{size.Height}[/]");
+                        AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{aa.Filename.EscapeMarkup()}[/] [hotpink]({size.Width}x{size.Height})[/]");
                     }
                     catch (Exception ex)
                     {
