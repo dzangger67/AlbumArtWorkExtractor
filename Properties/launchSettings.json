@@ -2,7 +2,7 @@
   "profiles": {
     "AlbumArtWorkExtractor": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\Users\\dzang\\Music\\MP3s\r\nabc"
+      "commandLineArgs": "-r \"E:\\Music\\MP3's\" -t -1"
     }
   }
 }
