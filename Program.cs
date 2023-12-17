@@ -6,6 +6,9 @@ using CommandLine;
 using System.Runtime.CompilerServices;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace AlbumArtWorkExtractor
 {
@@ -91,6 +94,67 @@ namespace AlbumArtWorkExtractor
             }
 
             return filename;
+        }
+
+        /*
+         * Gets the dimensions of the image
+         */
+        public static System.Drawing.Size GetImageDimensions(byte[] imageBytes)
+        {
+            using (var ms = new System.IO.MemoryStream(imageBytes))
+            {
+                using (var img = System.Drawing.Image.FromStream(ms))
+                {
+                    return img.Size;
+                }
+            }
+        }
+
+        /*
+         * Resize an image if the user wants them the same size.  From co-pilot
+         * 
+         * byte[] resizedImageBytes = ResizeImage(myImageBytes, 640, 480);
+         */
+        public byte[] ResizeImage(byte[] imageBytes, int maxWidth, int maxHeight)
+        {
+            using (var ms = new MemoryStream(imageBytes))
+            {
+                using (var img = Image.FromStream(ms))
+                {
+                    var ratioX = (double)maxWidth / img.Width;
+                    var ratioY = (double)maxHeight / img.Height;
+                    var ratio = Math.Min(ratioX, ratioY);
+
+                    var newWidth = (int)(img.Width * ratio);
+                    var newHeight = (int)(img.Height * ratio);
+
+                    Rectangle destRect = new Rectangle(0, 0, newWidth, newHeight);
+                    Bitmap destImage = new Bitmap(newWidth, newHeight);
+
+                    destImage.SetResolution(img.HorizontalResolution, img.VerticalResolution);
+
+                    using (Graphics graphics = Graphics.FromImage(destImage))
+                    {
+                        graphics.CompositingMode = CompositingMode.SourceCopy;
+                        graphics.CompositingQuality = CompositingQuality.HighQuality;
+                        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        graphics.SmoothingMode = SmoothingMode.HighQuality;
+                        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                        using (var wrapMode = new ImageAttributes())
+                        {
+                            wrapMode.SetWrapMode(WrapMode.TileFlipXY);
+                            graphics.DrawImage(img, destRect, 0, 0, img.Width, img.Height, GraphicsUnit.Pixel, wrapMode);
+                        }
+                    }
+
+                    using (MemoryStream ms2 = new MemoryStream())
+                    {
+                        destImage.Save(ms2, img.RawFormat);
+                        return ms2.ToArray();
+                    }
+                }
+            }
         }
 
         private static string? CraftImageFileName(string ImageNamingForamt, FileInfo file, TagLib.File audio, bool UniqueArtist = true)
@@ -232,11 +296,14 @@ namespace AlbumArtWorkExtractor
                                 ms.WriteTo(fs);
                                 ms.Flush();
                                 ms.Close();
-
-                                // update the console user
-                                AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{aa.Filename.EscapeMarkup()}[/]");
                             }
                         }
+
+                        // Determine the size of the image
+                        System.Drawing.Size size = GetImageDimensions(aa.Bytes);
+
+                        // update the console user
+                        AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{aa.Filename.EscapeMarkup()}[/][lightgreen]W:{size.Width}xH:{size.Height}[/]");
                     }
                     catch (Exception ex)
                     {
