@@ -2,7 +2,7 @@
   "profiles": {
     "AlbumArtWorkExtractor": {
       "commandName": "Project",
-      "commandLineArgs": "-r \"E:\\Music\\MP3's\" -t -1 -p \"e:\\music\\album-art\\[artist]-[album][disc].jpg\" -o"
+      "commandLineArgs": "-r \"E:\\Music\\MP3's\" -t -1 -p \"e:\\music\\album-art\\[artist]-[album][disc].jpg\""
     }
   }
 }

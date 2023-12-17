@@ -96,7 +96,12 @@ namespace AlbumArtWorkExtractor
                 await StartImageExtract(o);
             });
 
-            Console.ReadKey();
+            // If we're in the IDE, prompt the user to exit so we can see the results
+            if (IsInIDE())
+            {
+                AnsiConsole.MarkupLine("Press [hotpink]Any[/] key to exit");
+                Console.ReadKey();
+            }
         }
 
         /*
@@ -284,7 +289,7 @@ namespace AlbumArtWorkExtractor
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.Write(ex.Message);
+                                    AnsiConsole.WriteException(ex);
                                 }
                             }
                         }
@@ -333,10 +338,18 @@ namespace AlbumArtWorkExtractor
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine(ex.Message);
+                        AnsiConsole.WriteException(ex);
                     }                    
                 }
             }
+        }
+
+        /*
+         * Are we in the IDE or not?
+         */
+        private static bool IsInIDE()
+        {
+            return System.Diagnostics.Debugger.IsAttached;
         }
 
         private static async Task StartImageExtract(Options o)
@@ -345,8 +358,6 @@ namespace AlbumArtWorkExtractor
             DirectoryInfo dir = new DirectoryInfo(o.AudioRootPath);
 
             List<DirectoryInfo> AudioPaths = dir.GetDirectories("*.*", SearchOption.AllDirectories).ToList<DirectoryInfo>();
-
-            //List<FileInfo> AudioFiles = dir.GetFiles("*.mp3", SearchOption.AllDirectories).ToList<FileInfo>();
 
             // show how many files we're processing
             AnsiConsole.MarkupLine($"There are [hotpink]{AudioPaths.Count}[/] paths to process.");
@@ -374,14 +385,10 @@ namespace AlbumArtWorkExtractor
                 catch (Exception ex)
                 {
                     //ImageNamingFormat = @"d:\album-art\[artist]-[album].jpg";
-                    AnsiConsole.MarkupLine($"Error while processing: {path.FullName.EscapeMarkup()}");
+                    AnsiConsole.MarkupLine($"Error processing: {path.FullName.EscapeMarkup()}");
                     AnsiConsole.WriteException(ex);
-                    Debug.Write(ex.Message);
                 }
             });
-
-            Console.WriteLine("Press Any Key");
-            Console.ReadKey();
         }
     }
 }
