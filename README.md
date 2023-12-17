@@ -11,7 +11,7 @@ A future enhancement might be added that can check for duplicate images to preve
 
 ### Some examples
 
-`AlbumArtWorkExtractor -r "E:\Music\MP3's" -t -1 -p "e:\music\album-art\[artist]-[album][disc].jpg" -w 1000 -o`<br /> 
+`AlbumArtWorkExtractor -r "E:\Music\MP3's" -t 3 -p "e:\music\album-art\[artist]-[album][disc].jpg" -w 1000 -o`<br /> 
 |Option|Description|
 |--|--|
 |-r|The root path of where your audio files are|
