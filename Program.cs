@@ -37,6 +37,9 @@ namespace AlbumArtWorkExtractor
             [Option('r', "root", Required = true, HelpText = "The root path to your audio files")]
             public string AudioRootPath { get; set; }
 
+            [Option('e', "ext", Required = false, Default = "mp3", HelpText = "The file extension of the audio files to scan.")]
+            public string Extension{ get; set; }
+
             [Option('t', "threads", Required = false, Default = -1, HelpText = "The number of threads to use. -1 is all threads")]
             public int ThreadsToUse { get; set; }
             
@@ -222,7 +225,7 @@ namespace AlbumArtWorkExtractor
         private static void ProcessPath(DirectoryInfo PathToProcess, Options o)
         {
             // This is the directory we will start in
-            List<FileInfo> AudioFiles = PathToProcess.GetFiles("*.mp3", SearchOption.TopDirectoryOnly).ToList<FileInfo>();
+            List<FileInfo> AudioFiles = PathToProcess.GetFiles($"*.{o.Extension}", SearchOption.TopDirectoryOnly).ToList<FileInfo>();
             List<string> FilesSaved = new List<string>();
             ConcurrentBag<AlbumArt> AlbumArtToSave = new ConcurrentBag<AlbumArt>();
             List<FileAndAudioDetail> FilesAndAudios = new List<FileAndAudioDetail>();
@@ -243,7 +246,7 @@ namespace AlbumArtWorkExtractor
                         AnsiConsole.MarkupLine($"Processing [lightgreen]{file.FullName.EscapeMarkup()}[/]");
                     }
 
-                    // make it an mp3
+                    // Get the tag details of the audio file
                     TagLib.File tFile = TagLib.File.Create(file.FullName);
 
                     // keep track of the artists that we've come across
