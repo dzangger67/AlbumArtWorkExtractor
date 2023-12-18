@@ -7,8 +7,6 @@ The default file naming pattern is:
 **[sourcepath]** is the path to the audio files so all  images will be stored along with the audio files.  
 If you have all your audio files in a single folder, then this probably isn't for you.  This assumes you have an organized audio collection.  If the audio files are part of a multi-disc collection, then an image will be written for each **[disc]**.  If the disc number doesn't exist, then this value will be blank.  If this folder contains music from a 2 disc collection,  you can expect to see folder01.jpg and folder02.jpg as long as your audio files are tagged properly.  This is done because some multi-disc collections have different art work per disc.  Even if they're not, you should at least end up with folder.jpg.  
 
-A future enhancement might be added that can check for duplicate images to prevent wasted space.
-
 ### An example
 
 `AlbumArtWorkExtractor -r "E:\Music\MP3's" -t -1 -p "e:\music\album-art\[artist]-[album][disc].jpg" -w 1000 -o`<br /> 
