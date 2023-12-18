@@ -9,6 +9,7 @@ using System.IO;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using static AlbumArtWorkExtractor.Program;
 
 // Some examples:
 //
@@ -24,6 +25,12 @@ namespace AlbumArtWorkExtractor
         {
             public string Filename { get; set; }
             public byte[] Bytes { get; set; }
+        }
+
+        public class ApplicationError
+        {
+            public FileInfo fileinfo { get; set; }
+            public Exception exception { get; set; }
         }
 
         public class FileAndAudioDetail
@@ -80,29 +87,28 @@ namespace AlbumArtWorkExtractor
                         {
                             Directory.CreateDirectory(file.DirectoryName);
                         }
+
+                        // Make sure if we're resizing the image, the values make sense.  If only one value is
+                        // provided, set the other value to the other value .. LOL
+                        if (o.Width != null && o.Height == null)
+                            o.Height = o.Width;
+                        else if (o.Height != null && o.Width == null)
+                            o.Width = o.Height;
+
+                        // Start the image extraction from all the audio files
+                        await StartImageExtract(o);
                     }
                     catch (Exception ex)
                     {
                         AnsiConsole.WriteException(ex);
-                        Environment.Exit(1);
                     }                    
-                }
-
-                // Make sure if we're resizing the image, the values make sense.  If only one value is
-                // provided, set the other value to the other value .. LOL
-                if (o.Width != null && o.Height == null)
-                    o.Height = o.Width;
-                else if (o.Height != null && o.Width == null)
-                    o.Width = o.Height;
-
-                // Start the image extraction from all the audio files
-                await StartImageExtract(o);
+                }               
             });
 
             // If we're in the IDE, prompt the user to exit so we can see the results
             if (IsInIDE())
             {
-                AnsiConsole.MarkupLine("Press [hotpink]Any[/] key to exit");
+                AnsiConsole.MarkupLine("\n\nPress [hotpink]any[/] key to exit");
                 Console.ReadKey();
             }
         }
@@ -222,13 +228,14 @@ namespace AlbumArtWorkExtractor
         /*
          * Process the path of audio files.  
          */
-        private static void ProcessPath(DirectoryInfo PathToProcess, Options o)
+        private static List<ApplicationError> ProcessPath(DirectoryInfo PathToProcess, Options o)
         {
             // This is the directory we will start in
             List<FileInfo> AudioFiles = PathToProcess.GetFiles($"*.{o.Extension}", SearchOption.TopDirectoryOnly).ToList<FileInfo>();
             List<string> FilesSaved = new List<string>();
             ConcurrentBag<AlbumArt> AlbumArtToSave = new ConcurrentBag<AlbumArt>();
             List<FileAndAudioDetail> FilesAndAudios = new List<FileAndAudioDetail>();
+            List<ApplicationError> PathApplicationErrors = new List<ApplicationError>();
 
             // Show the path we are processing
             AnsiConsole.MarkupLine($"Scanning [yellow]{PathToProcess.FullName.EscapeMarkup()}[/]");
@@ -243,21 +250,28 @@ namespace AlbumArtWorkExtractor
                 {
                     if (o.Verbose)
                     {
-                        AnsiConsole.MarkupLine($"Processing [lightgreen]{file.FullName.EscapeMarkup()}[/]");
+                        AnsiConsole.MarkupLine($"Analyzing [lightgreen]{file.FullName.EscapeMarkup()}[/]");
                     }
 
-                    // Get the tag details of the audio file
-                    TagLib.File tFile = TagLib.File.Create(file.FullName);
-
-                    // keep track of the artists that we've come across
-                    if (!String.IsNullOrEmpty(tFile.Tag.FirstArtist))
+                    try
                     {
-                         if (!UniqueArtists.Contains(tFile.Tag.FirstArtist))
-                            UniqueArtists.Add(tFile.Tag.FirstArtist);
-                    }
+                        // Get the tag details of the audio file
+                        TagLib.File tagAudioFile = TagLib.File.Create(file.FullName);
 
-                    // we've already processed the info once, so save it here to speed things up
-                    FilesAndAudios.Add(new FileAndAudioDetail {Fileinfo = file, AudioDetails = tFile}) ;
+                        // keep track of the artists that we've come across
+                        if (!String.IsNullOrEmpty(tagAudioFile.Tag.FirstArtist))
+                        {
+                            if (!UniqueArtists.Contains(tagAudioFile.Tag.FirstArtist))
+                                UniqueArtists.Add(tagAudioFile.Tag.FirstArtist);
+                        }
+
+                        // we've already processed the info once, so save it here to speed things up
+                        FilesAndAudios.Add(new FileAndAudioDetail { Fileinfo = file, AudioDetails = tagAudioFile });
+                    }
+                    catch (Exception ex)
+                    {
+                        PathApplicationErrors.Add(new ApplicationError{fileinfo = file, exception = ex});
+                    }                    
                 }
 
                 // process each audio file we found
@@ -290,7 +304,8 @@ namespace AlbumArtWorkExtractor
                             }
                             catch (Exception ex)
                             {
-                                AnsiConsole.WriteException(ex);
+                                FileInfo fi = new FileInfo(TargetImageName);
+                                PathApplicationErrors.Add(new ApplicationError {fileinfo = fi, exception = ex});
                             }
                         }
 
@@ -337,11 +352,15 @@ namespace AlbumArtWorkExtractor
                         AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{albumart.Filename.EscapeMarkup()}[/] [hotpink]({size.Width}x{size.Height})[/]");
                     }
                     catch (Exception ex)
-                    {
-                        AnsiConsole.WriteException(ex);
+                    {                        
+                        FileInfo fi = new FileInfo(albumart.Filename);
+                        PathApplicationErrors.Add(new ApplicationError { fileinfo = fi, exception = ex });
                     }                    
                 }
             }
+
+            // return any errors we encountered
+            return PathApplicationErrors;
         }
 
         /*
@@ -356,11 +375,15 @@ namespace AlbumArtWorkExtractor
         {
             // This is the directory we will start in
             DirectoryInfo dir = new DirectoryInfo(o.AudioRootPath);
+            ConcurrentBag<ApplicationError> ApplicationErrors = new ConcurrentBag<ApplicationError>();
 
             List<DirectoryInfo> AudioPaths = dir.GetDirectories("*.*", SearchOption.AllDirectories).ToList<DirectoryInfo>();
 
             // show how many files we're processing
-            AnsiConsole.MarkupLine($"There are [hotpink]{AudioPaths.Count}[/] paths to process.");
+            if (o.Verbose)
+            {
+                AnsiConsole.MarkupLine($"There are [hotpink]{AudioPaths.Count}[/] paths to process.");
+            }
 
             // Set up the parallel options that will be used to determine the thread count
             var parallelOptions = new ParallelOptions()
@@ -372,23 +395,40 @@ namespace AlbumArtWorkExtractor
             Parallel.ForEach(AudioPaths, parallelOptions, path => {
                 try
                 {
-                    // show what we are processing
-                    if (o.Verbose)
-                    {
-                        string ProcessingPath = $"[yellow]{path.FullName.Replace(o.AudioRootPath, "").EscapeMarkup()}[/]";
-                        AnsiConsole.MarkupLine(ProcessingPath);
-                    }
-
                     // process the next path
-                    ProcessPath(path, o);
+                    List<ApplicationError> AudioErrorsInPath = ProcessPath(path, o);
+
+                    // if errors were returned, add them to our global list
+                    if (AudioErrorsInPath.Count > 0)
+                    {
+                        foreach(ApplicationError audioError in AudioErrorsInPath)
+                        {
+                            ApplicationErrors.Add(audioError);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    //ImageNamingFormat = @"d:\album-art\[artist]-[album].jpg";
-                    AnsiConsole.MarkupLine($"Error processing: {path.FullName.EscapeMarkup()}");
-                    AnsiConsole.WriteException(ex);
+                    FileInfo fi = new FileInfo(path.FullName);
+                    ApplicationErrors.Add(new ApplicationError { fileinfo = fi, exception = ex });
                 }
             });
+
+            // Are there any errors?  If so, display them to the console user
+            if (ApplicationErrors.Count > 0)
+            {
+                Console.Beep();
+                int ErrorCount = 0;
+
+                foreach( ApplicationError audioError in ApplicationErrors)
+                {
+                    AnsiConsole.MarkupLine($"\nError {++ErrorCount} [indianred1]{audioError.exception.Message.EscapeMarkup()}[/]");
+                    AnsiConsole.MarkupLine($"[yellow]{audioError.fileinfo.DirectoryName.EscapeMarkup()}\\[/][hotpink]{audioError.fileinfo.Name.EscapeMarkup()}[/]");
+
+                    if (o.Verbose)
+                        AnsiConsole.WriteException(audioError.exception);
+                }
+            }
         }
     }
 }
