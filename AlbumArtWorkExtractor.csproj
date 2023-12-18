@@ -12,7 +12,7 @@
     <Description>Extract album art from your audio collection.  This can extract all the album art work and place them where you want them.</Description>
     <Authors>dzangger67, David Zangger</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>0.6.7.1</Version>
+    <Version>0.6.7.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
