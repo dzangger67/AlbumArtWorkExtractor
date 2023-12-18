@@ -272,25 +272,22 @@ namespace AlbumArtWorkExtractor
                         // check to see if the file already exists.  if so, add it to the list and/or check the overwrite flag
                         bool FileExists = System.IO.File.Exists(TargetImageName);
 
-                        if (FileExists)
+                        // if the file exists and we want to overwrite, try to delete the file
+                        if (FileExists && o.Overwrite)
                         {
                             // if the file exists and we want to overwrite it, delete it first; the first time only
-                            if (o.Overwrite)
+                            try
                             {
-                                try
-                                {
-                                    // Delete the file
-                                    System.IO.File.Delete(TargetImageName);
-
-                                    // Update the console user
-                                    AnsiConsole.MarkupLine($"[indianred1]Deleted[/] [yellow]{TargetImageName.EscapeMarkup()}[/] because of Overwrite flag");
-                                    // It no longer exists because we deleted it
-                                    FileExists = false;
-                                }
-                                catch (Exception ex)
-                                {
-                                    AnsiConsole.WriteException(ex);
-                                }
+                                // Delete the file
+                                System.IO.File.Delete(TargetImageName);
+                                // Update the console user
+                                AnsiConsole.MarkupLine($"[indianred1]Deleted[/] [yellow]{TargetImageName.EscapeMarkup()}[/] because of Overwrite flag");
+                                // It no longer exists because we deleted it
+                                FileExists = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                AnsiConsole.WriteException(ex);
                             }
                         }
 
@@ -309,20 +306,20 @@ namespace AlbumArtWorkExtractor
                 }
 
                 // now save the image files we need to write
-                foreach(AlbumArt aa in AlbumArtToSave)
+                foreach(AlbumArt albumart in AlbumArtToSave)
                 {
                     try
                     {
                         // do we need to resize the image?
                         if (o.Height != null && o.Width != null)
                         {
-                            aa.Bytes = ResizeImage(aa.Bytes, o.Width, o.Height);
+                            albumart.Bytes = ResizeImage(albumart.Bytes, o.Width, o.Height);
                         }
 
                         // Now write the bytes to a file
-                        using (var ms = new MemoryStream(aa.Bytes))
+                        using (var ms = new MemoryStream(albumart.Bytes))
                         {
-                            using (var fs = new FileStream(aa.Filename, FileMode.Create))
+                            using (var fs = new FileStream(albumart.Filename, FileMode.Create))
                             {
                                 ms.WriteTo(fs);
                                 ms.Flush();
@@ -331,10 +328,10 @@ namespace AlbumArtWorkExtractor
                         }
 
                         // Determine the size of the image
-                        System.Drawing.Size size = GetImageDimensions(aa.Bytes);
+                        System.Drawing.Size size = GetImageDimensions(albumart.Bytes);
 
                         // update the console user
-                        AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{aa.Filename.EscapeMarkup()}[/] [hotpink]({size.Width}x{size.Height})[/]");
+                        AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{albumart.Filename.EscapeMarkup()}[/] [hotpink]({size.Width}x{size.Height})[/]");
                     }
                     catch (Exception ex)
                     {
