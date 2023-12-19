@@ -10,6 +10,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using static AlbumArtWorkExtractor.Program;
+using Force.Crc32;
 
 // Some examples:
 //
@@ -21,10 +22,14 @@ namespace AlbumArtWorkExtractor
 {
     internal class Program
     {
+        // A global list of all the errors
+        public static ConcurrentBag<ApplicationError> ApplicationErrors = new ConcurrentBag<ApplicationError>();
+
         public class AlbumArt
         {
             public string Filename { get; set; }
             public byte[] Bytes { get; set; }
+            public string CRC { get; set; }
         }
 
         public class ApplicationError
@@ -68,6 +73,8 @@ namespace AlbumArtWorkExtractor
             [Option('w', "width", Required = false, Default = null, HelpText = "The new Width for the image.")]
             public int? Width { get; set; }
 
+            [Option('n', "nodupes", Required = false, Default = false, HelpText = "Don't create multiple copies of the same image.")]
+            public bool NoDupes { get; set; }
         }
 
         static async Task Main(string[] args)
@@ -87,22 +94,22 @@ namespace AlbumArtWorkExtractor
                         {
                             Directory.CreateDirectory(file.DirectoryName);
                         }
-
-                        // Make sure if we're resizing the image, the values make sense.  If only one value is
-                        // provided, set the other value to the other value .. LOL
-                        if (o.Width != null && o.Height == null)
-                            o.Height = o.Width;
-                        else if (o.Height != null && o.Width == null)
-                            o.Width = o.Height;
-
-                        // Start the image extraction from all the audio files
-                        await StartImageExtract(o);
                     }
                     catch (Exception ex)
                     {
                         AnsiConsole.WriteException(ex);
-                    }                    
-                }               
+                    }
+                }
+
+                // Make sure if we're resizing the image, the values make sense.  If only one value is
+                // provided, set the other value to the other value .. LOL
+                if (o.Width != null && o.Height == null)
+                    o.Height = o.Width;
+                else if (o.Height != null && o.Width == null)
+                    o.Width = o.Height;
+
+                // Start the image extraction from all the audio files
+                await StartImageExtract(o);
             });
 
             // If we're in the IDE, prompt the user to exit so we can see the results
@@ -188,6 +195,24 @@ namespace AlbumArtWorkExtractor
                     }
                 }
             }
+        }
+
+        /*
+         * Calculate the CRC of the image we want to save.  To try and prevent a bunch of duplicates
+         * from being created
+         */
+        public static string CalcCRC(byte[] data)
+        {
+            string output = "";
+
+            Crc32Algorithm x = new Crc32Algorithm();
+
+            foreach (byte b in x.ComputeHash(data))
+            {
+                output += b.ToString("x2");
+            }
+
+            return output.ToLower();
         }
 
         private static string? CraftImageFileName(string ImageNamingForamt, FileInfo file, TagLib.File audio, bool UniqueArtist = true)
@@ -324,15 +349,63 @@ namespace AlbumArtWorkExtractor
                 }
 
                 // now save the image files we need to write
-                foreach(AlbumArt albumart in AlbumArtToSave)
+                SaveArtWork(AlbumArtToSave, o);
+            }
+
+            // return any errors we encountered
+            return PathApplicationErrors;
+        }
+
+        /*
+         * Saves each piece of album art to disk.  
+         */
+        public static void SaveArtWork(ConcurrentBag<AlbumArt> AlbumArtToSave, Options o)
+        {
+            bool WriteFile = false;
+            string crc = "";
+
+            foreach (AlbumArt albumart in AlbumArtToSave.OrderBy(aa => aa.Filename))
+            {
+                try
                 {
-                    try
+                    // do we need to resize the image?
+                    if (o.Height != null && o.Width != null)
                     {
-                        // do we need to resize the image?
-                        if (o.Height != null && o.Width != null)
+                        albumart.Bytes = ResizeImage(albumart.Bytes, o.Width, o.Height);
+                    }
+
+                    // if we don't want duplicates, we have to calculate the crc of each
+                    if (o.NoDupes)
+                    {
+                        // Calculate the CRC
+                        crc = CalcCRC(albumart.Bytes);
+
+                        // find out if we've already written this file
+                        int count = AlbumArtToSave.Count(ab => ab.CRC == crc);
+
+                        // If we don't have any files matching the crc, we need to write the file
+                        if (count == 0)
                         {
-                            albumart.Bytes = ResizeImage(albumart.Bytes, o.Width, o.Height);
+                            WriteFile = true;
                         }
+                        else
+                        {
+                            // update the console user
+                            AnsiConsole.MarkupLine($"[blue]Duplicate[/] [yellow]{albumart.Filename.EscapeMarkup()}[/] because of CRC");
+                            // Don't write the file
+                            WriteFile = false;
+                        }
+                    }
+                    else
+                    {
+                        WriteFile = true;
+                    }
+
+                    // Write the file
+                    if (WriteFile)
+                    {
+                        // save the crc
+                        albumart.CRC = crc;
 
                         // Now write the bytes to a file
                         using (var ms = new MemoryStream(albumart.Bytes))
@@ -345,22 +418,22 @@ namespace AlbumArtWorkExtractor
                             }
                         }
 
+                        // set the creation date
+                        System.IO.File.SetCreationTime(albumart.Filename, DateTime.Now);
+
                         // Determine the size of the image
                         System.Drawing.Size size = GetImageDimensions(albumart.Bytes);
 
                         // update the console user
                         AnsiConsole.MarkupLine($"[lightgreen]Saved[/] [yellow]{albumart.Filename.EscapeMarkup()}[/] [hotpink]({size.Width}x{size.Height})[/]");
                     }
-                    catch (Exception ex)
-                    {                        
-                        FileInfo fi = new FileInfo(albumart.Filename);
-                        PathApplicationErrors.Add(new ApplicationError { fileinfo = fi, exception = ex });
-                    }                    
+                }
+                catch (Exception ex)
+                {
+                    FileInfo fi = new FileInfo(albumart.Filename);
+                    ApplicationErrors.Add(new ApplicationError { fileinfo = fi, exception = ex });
                 }
             }
-
-            // return any errors we encountered
-            return PathApplicationErrors;
         }
 
         /*
@@ -375,9 +448,17 @@ namespace AlbumArtWorkExtractor
         {
             // This is the directory we will start in
             DirectoryInfo dir = new DirectoryInfo(o.AudioRootPath);
-            ConcurrentBag<ApplicationError> ApplicationErrors = new ConcurrentBag<ApplicationError>();
+            List<DirectoryInfo> AudioPaths = null;
 
-            List<DirectoryInfo> AudioPaths = dir.GetDirectories("*.*", SearchOption.AllDirectories).ToList<DirectoryInfo>();
+            AnsiConsole.Status()
+                .AutoRefresh(true)
+                .Spinner(Spinner.Known.BouncingBall)
+                .SpinnerStyle(Style.Parse("blue bold"))
+                .Start($"Reading root path [hotpink]{o.AudioRootPath}[/]... Please wait", ctx =>
+                {
+                    ctx.Refresh();
+                    AudioPaths = dir.GetDirectories("*.*", SearchOption.AllDirectories).ToList<DirectoryInfo>();
+                });
 
             // show how many files we're processing
             if (o.Verbose)
