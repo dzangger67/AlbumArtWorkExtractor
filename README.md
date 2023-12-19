@@ -25,8 +25,11 @@ My collection has spanned many years and over these years, I've collected many p
 
 It will remove any hidden attribute for all the files in the current folder and any sub-folder.  After I ran this, I was able to see all the pieces of artwork.  I was then able to delete all the folder*.jpg files once again and get fresh artwork after running this application.
 
-### Packages
-CommandLineParser    https://github.com/commandlineparser/commandline
-Crc32.Net            https://github.com/force-net/Crc32.NET
-Spectre.Console        https://github.com/spectreconsole/spectre.console
-TagLibSharp            https://github.com/mono/taglib-sharp
+### Used Packages
+Thank you to the people who support the following packages.  
+
+ 1. [CommandLineParser](https://github.com/commandlineparser/commandline)
+ 2. [Crc32.Net](https://github.com/force-net/Crc32.NET)            
+ 3. [Spectre.Console](https://github.com/spectreconsole/spectre.console)
+ 4. [TagLibSharp](https://github.com/mono/taglib-sharp)
+
