@@ -2,7 +2,7 @@
   "profiles": {
     "AlbumArtWorkExtractor": {
       "commandName": "Project",
-      "commandLineArgs": "-r \"E:\\Music\\MP3's\""
+      "commandLineArgs": "-r \"E:\\Music\\MP3's\\House of Love\" -t 1"
     }
   }
 }
